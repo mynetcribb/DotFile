@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+# ======================================== Rules =========================================
+: << 'SKIP'
+ Use as ${tmp_}/0 as final output file
+ Use "${}" "$""" "$num"
+ Use single ticks with sed and awk (don't why it understands it)
+ Use "${ Var }" 	when EXPANSION NEEDED			in SHELL
+ Use "$Var"		when EXPANSION NOT NEEDED
+ Use '$""'		when SUBSTITUTING STDIN			in AWK and SED
+ Use single ticks when 
+			NO RUN TIME SUBSTITUTION EXIST in Quotes
+			Quotes DO NOT have other single ticks
+ Use double ticks when 
+			RUN TIME SUBSTITUTION EXIST in Quotes
+			Quotes HAVE ANY single ticks
+ Inside Double ticks		
+			LEAVE ACTIVE RUNTIME SUBSTITUTION 	${ charVar_ }
+			ESCAPE UNWANTED SUBSTITUTION		\${ charVar }, some ${ integerVar }	
+			ESCAPE unwanted Quote terminations	"\"\""
+ ${ intVar } are
+			inherited from USER INPUT
+			inherited by sed and awk like ${0}
+ ${ charVar_ } are 
+			ACTIVE runtime substitution variables
+ ${ charVar } are 
+			inherited substitution from USER INPUT or ANOTHER FUNCTION or LOOP
+			PASSIVE substitution variables
+ Before >| or >>
+			check if configuration exists
+	-CAUTION- -OR-	DELETE the configurations before appending
+SKIP
+
+declare -x tmp_="/root/tmp/trash"
+export si_="sed -i"
+export se_="sed -e"
+export gs_="gsettings set"
+export og_="org.gnome"
+export func_="/root/work/dotfile/functions"
+
+t_='anyway'
+
+read -n 1 -p 'Do aliens exist ??' r1 ; tput cr; tput el;
+if echo ${r1} | 
+	grep -iq "^y" ;
+then
+	export alien_=0
+else
+	export alien_=1
+fi
+
+test -d /root/work/dotfile || git clone https://github.com/mynetcribb/dotfile.git "$(mkdir -p $_ && echo $_)"
+
+${si_} 's/http.kali/repo.kali/' /etc/apt/sources.list
+${si_} '/deb-src/s/^# //' 	/etc/apt/sources.list
+
+[ -f /etc/apt/sources.list.d/sublime-text.list ] ||
+{
+	wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | apt-key add -
+	echo "deb https://download.sublimetext.com/ apt/stable/" 1>| /etc/apt/sources.list.d/sublime-text.list
+}
+
+[ -f /etc/apt/sources.list.d/docker.list ] ||
+{
+	apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+	echo 'deb https://apt.dockerproject.org/repo debian-stretch main' 1>| /etc/apt/sources.list.d/docker.list
+}
+
+perl -MPOSIX -e 'tcflush 0,0'
+echo -e "\x0a\x1b[7m\x57\x61\x6e\x74\x20\x55\x70\x67\x72\x61\x64\x65\x20\x3f\x3f\x1b[27m"
+read -n 1 r1 ; tput cr; tput el;
+if echo "${r1}" | 
+	grep -iq "^y" ; 
+then
+	t_=
+	apt-get update -y && apt-get upgrade -y ;
+	perl -MPOSIX -e 'tcflush 0,0'
+	printf '\x0a\x1b[7m\x57\x61\x6e\x74\x20\x44\x69\x73\x74\x72\x6f\x20\x55\x70\x67\x72\x61\x64\x65\x20\x3f\x3f\x1b[27m'
+	read -n 1 r101 ; tput cr; tput el;
+	if echo "${r101}" | 
+		grep -iq "^y" ;	
+	then 
+		trap '' 2
+		apt-get dist-upgrade -y ;
+		trap 2
+		perl -MPOSIX -e 'tcflush 0,0'
+		printf '\x0a\x1b[7m\127\141\156\164\040\111\156\163\164\141\154\154\141\164\151\157\156\040\077\077\x1b[27m\012\012'
+		read -n 1 r10101 ; tput cr; tput el;
+		if echo "${r10101}" | 
+			grep -iq "^y" ;	
+		then
+			while read line_
+			do
+				array=(${line_})
+				for i in "${array[@]}"
+				do
+					echo $'\x1b[7m'${i}$'\x1b[27m'
+					apt-get install ${i} -y 2>&1 | tee /dev/tty | (GREP_COLORS='sl=1;7' grep "Unable to locate package" && read input_ 0< /dev/tty)
+				done
+			done 0< /root/work/dotfile/utilities
+			#abs-guide c++-annotations libace-doc ns3-doc complexity-doc cython-doc
+			#forensics-all forensics-full
+			#eclipse eclipse-pydev
+			#hwb doc-rfc qrfcview rfcdiff
+			#boinc 	texlive-full gedit-plugins xautomation xwd lynx emacs mktemp w3m watchdog
+			#xrandr xdpyinfo gimp inkscape blender synfig darktable fbi fim groff glfer
+			#dbeacon flamethrower uftp udpcast	
+			#xinput evtest tor-dbg ddd stealth cde dialog
+			#systemctl journalctl
+			#compress lzma xz tar lrzip 7z 7za zip rar gzip bzip2 lzip lzop arj
+			#enscribe lame audacity sonic-visualiser
+			#plumbr dcfldd wce xpa-tools vlan
+			#php-http-request netsniff-ng netwox nxproxy-dbg httpry-dbg
+			#beancounter smtm tcptraceroute rr pstack fakeroot-ng
+			#cymothoa cronic ifgate ifmail ifcico
+		fi
+		perl -MPOSIX -e 'tcflush 0,0'
+		read -n 1 -p $'\x0a\x1b[7m\x57\x61\x6E\x74\x20\x32\x46\x41\x20\x3F\x3F\x1b[27m' r10101 ; tput cr; tput el;
+		if echo "${r10101}" |
+			grep -iq "^y" ;	
+		then
+			echo $'\e[33;44;1m\e[H\e[J'
+			echo $'\x0a\033[1m \x1b[7m\x59\x6F\x75\x27\x72\x65\x20\x72\x65\x71\x75\x69\x72\x65\x64\x20\x74\x6F\x20\x73\x74\x61\x79\x21\x1b[27m \033[0m'
+			google-authenticator ;
+			(grep -q google /etc/pam.d/comm-auth) || 
+				echo 'auth required pam_google_authenticator.so nullok' 	1>> /etc/pam.d/comm-auth
+			#(grep -q groot 0< /etc/pam.d/sshd) 	||
+				#echo 'auth required pam_google_authenticator.so nullok' 	1>> /etc/pam.d/sshd
+			#"${si_}" 's/\(ChallengeResponseAuthentication \)no/\1yes/' /etc/ssh/sshd_config
+			#service ssh restart
+		fi
+	fi
+fi
+#nawk fmt msgattrib gnuplot
+#fuser fdisk dd fsck r2 strftime(histtimeformat) xephyr xpra autofs logrotate rsync pkexec modprobe fdupes hunt
+#mknod mkswap modinfo modprobe
+#ldconfig objdump ld as nasm clang gcc g++
+#suricata mimikatz rng-tools rng-tools5
+#scratch
+
+chmod 750 /root/work/dotfile/sconf
+
+read -n 1 -p $'\x1b[1m\x1b[7mWant it Configured '${t_}$'??\x1b[27m' r1 ; tput cr; tput el;
+if echo ${r1} |
+	grep -iq "^y" ;
+then
+	/root/work/dotfile/sconf
+	/root/work/dotfile/uconf
+fi
+
+. /root/work/dotfile/bashrc
+
+perl -MPOSIX -e 'tcflush 0,0'
+echo $'\x0a\x1b[7m\x3E\x3E\x3E\x20\x27\x72\x65\x6c\x6f\x61\x64\x27\x20\x69\x73\x20\x73\x65\x74\x1b[27m'
+read -n 1 -p $'\x0a\x1b[7m\x57\x61\x6e\x74\x20\x52\x65\x73\x74\x61\x72\x74\x20\x3f\x3f\x20\x1b[27m' r1 ; tput cr; tput el;
+if echo "${r1}" | 
+	grep -iq "^y" ;	
+then
+	init 6 ;
+else
+	wid_=$(xprop -root | 
+		grep "_NET_ACTIVE_WINDOW(WINDOW)"| 
+		awk '{print $5}' ;
+		)
+	xdotool windowfocus "${wid_}" ;
+	xdotool key ctrl+t ;
+	wmctrl -i -a "${wid_}" && 
+	exit ;
+fi
+
+#wid_=$(xprop -root | grep "_NET_ACTIVE_WINDOW(WINDOW)"| awk '{print $5}'); xdotool windowfocus "${wid_}"; xdotool key /+t+r+e+e ;	wmctrl -i -a "${wid_}"
+

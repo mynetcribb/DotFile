@@ -1,0 +1,188 @@
+
+# =============================== DIRECTORIES =======================================
+
+mkdir -p /root/tmp/trash 	
+mkdir -p /var/www/html/s 	
+mkdir /root/git 		2>| /dev/null
+mkdir /root/source 		2>| /dev/null
+mkdir /root/Downloads/util	2>| /dev/null
+
+# ================================= SYMLINKS ========================================
+
+test -f /root/.bash_aliases  || ln -s /root/work/dotfile/bashrc "$_"
+test -f /etc/vim/vimrc.local || ln -s /root/work/dotfile/vimrc 	"$_"
+
+grep -q 'set colored-stats on' /etc/inputrc || 
+	echo 'set colored-stats on'	1>> /etc/inputrc
+
+${si_} 's/#\(alias grep=\)/\1/' 		/root/.bashrc
+${si_} 's/\(alias ls=\)/#\1/'			/root/.bashrc
+${si_} 's/\(HISTSIZE=\)/#\1/'			/root/.bash_history
+${si_} 's/\(HISTFILESIZE=\)/#\1/'		/root/.bash_history
+
+# ================================== USERS ==========================================
+
+grep -q groot /etc/passwd || 
+{
+	echo earth 1>| /etc/hostname && 
+	${si_} '2s/.*/127.0.1.1    earth/' /etc/hosts 
+	echo 'promt for root' && 
+	passwd root
+	
+	useradd --create-home groot 	&& 
+	${si_} '/groot/s/$/\/bin\/bash/' /etc/passwd && 
+	echo 'promt for groot' 		&& 
+	passwd groot
+
+	# echo "groot	ALL=(ALL:ALL) ALL" 		1>> /etc/sudoers
+	adduser groot sudo
+}
+
+# ================================= CRON JOBS ======================================
+
+grep -q updatedb /var/spool/cron/crontabs/root ||
+{ 
+	{ crontab -l; echo "01 01 * * * updatedb"; } 		| crontab -
+	{ crontab -l; echo "01 01 * * * rm -rf ${tmp_}/*"; } 	| crontab -
+	{ crontab -l; echo "01 01 * * * export DISPLAY=:0 && xhost local:root && /usr/bin/firefox"; }	| crontab -
+}
+
+	#{
+	#echo "7		5	/root/files/mega	/root/files/anacron"
+	#} 1>> /etc/anacrontab
+
+if [ ${alien_} -eq 0 ]
+then	
+
+# ================================= STARTUP ========================================
+
+	{
+		echo '[Desktop Entry]'
+		echo 'Type=Application'
+		echo 'Exec=/root/files/onlogin'
+		echo 'Hidden=false'
+		echo 'NoDisplay=false '
+		echo 'X-GNOME-Autostart-enabled=true'
+	} | install -D /dev/stdin /root/.config/autostart/start.desktop -m 750
+
+
+	{
+		echo 'gnome-terminal --full-screen -x tmux'
+		echo '#shred -fxz /root/.bash_history && echo -n 1>| /root/.bash_history && history -c'
+		echo 'nohup guake 1>| dev/null 2>&1 &'
+	} | install -D /dev/stdin /root/files/onlogin -m 750
+
+# =============================== EXECUTABLES =======================================
+
+	chmod 0750 /root/.config/autostart/start.desktop
+	chmod 0750 /root/files/onlogin
+
+	chmod 0750 /root/work/dotfile/bashrc
+	chmod 0750 /root/work/dotfile/aliases
+	chmod 0750 /root/work/dotfile/functions
+	chmod 0750 /root/work/dotfile/vimrc
+	chmod 0750 /root/work/dotfile/uconf
+	chmod 0750 /root/work/dotfile/udown
+
+	chmod 0750 /root/work/web/main
+
+# =============================== CONFIGURATIONS ====================================
+
+	git config --global user.name mynetcribb
+	git config --global user.email mynetcribb@gmail.com
+	git config --global branch.autosetuprebase always
+	git config --global color.ui true
+	git config --global color.status auto
+	git config --global color.branch auto
+	git config --global core.editor vim
+	git config --global credential.helper store
+	#git config --global merge.tool vimdiff
+
+	${si_} 's/.*\(AutomaticLoginEnable \).*/\1= true/' 	/etc/gdm3/daemon.conf
+	${si_} 's/.*\(AutomaticLogin \).*/\1= root/' 		/etc/gdm3/daemon.conf
+	${si_} 's/LEFT/RIGHT/'					/etc/dconf/db/local.d/kali-tweaks
+#	${si_} 's/\(size=\)32/\120/' 				/etc/dconf/db/local.d/kali-tweaks
+#	${si_} 's/\(shrink=\)true/\1false/' 			/etc/dconf/db/local.d/kali-tweaks
+#	${si_} 's/\(opacity=\)0/\1100/' 			/etc/dconf/db/local.d/kali-tweaks
+#	${si_} 's/.*\(opacity\).*/background-\1=0/'		/etc/dconf/db/local.d/kali-tweaks
+	
+# ==================================== GRUB =========================================
+
+	${si_} 's/^#\(GRUB_GFXMODE=\).*/\1auto/; s/^\(GRUB_CMDLINE_LINUX_DEFAULT=\).*/\1""/; s/^\(GRUB_BACKGROUND=\)/\1""/' 								/etc/default/grub
+	grep -i -q background /etc/default/grub ||
+	{
+		{
+			echo 'GRUB_BACKGROUND=""' 
+			echo GRUB_TERMINAL_OUTPUT=console
+		} 1>> /etc/default/grub
+
+		update-grub 2>| /dev/null
+	}
+
+# ============================= GSETTINGS AND DCONF =================================
+
+	dconf write /org/gnome/desktop/session/idle-delay "uint32 0"
+
+	gconvert() {
+		g_path_=$(echo ${g_schema_} | sed 'y|.|/|; s|$|/|; s|^|/|; s|\(.*\)|\L\1|')
+		schema_path_=${g_schema_}:${g_path_}
+	}
+
+	g_schema_=${og_}.Terminal.Legacy.Keybindings
+	gconvert ;
+
+	${gs_} ${schema_path_} next-tab '<Shift>Right'
+	${gs_} ${schema_path_} prev-tab '<Shift>Left'
+	${gs_} ${schema_path_} full-screen '<Alt>f'
+
+	#"${gs_}" "${og_}".desktop.default-applications.terminal exec terminator
+	
+	${gs_} ${og_}.desktop.screensaver lock-enabled false
+	${gs_} ${og_}.Terminal.Legacy.Settings theme-variant 'dark'
+	${gs_} ${og_}.Terminal.Legacy.Settings default-show-menubar false
+	${gs_} ${og_}.Terminal.Legacy.Settings tab-position 'bottom'
+	${gs_} ${og_}.desktop.lockdown disable-lock-screen true
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock dock-position "'bottom'"
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock opaque-background false
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock require-click-to-show false
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock thumbnail-size 0.10
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock thumbnail-visible-width 10.0
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock workspace-caption-height 15.0
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock workspace-caption-taskbar-icon-size 15.0
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock workspace-caption-windowcount-image true
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock animation-time 0.0
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock show-delay 0.0
+	${gs_} ${og_}.shell.extensions.workspaces-to-dock hide-delay 0.0
+	${gs_} ${og_}.shell.app-switcher current-workspace-only true
+	${gs_} ${og_}.desktop.wm.keybindings switch-to-workspace-left "['<Control><Shift>Left']"
+	${gs_} ${og_}.desktop.wm.keybindings switch-to-workspace-right "['<Control><Shift>Right']"
+	${gs_} ${og_}.desktop.wm.keybindings switch-windows "['<Alt>Tab']"
+	${gs_} ${og_}.desktop.wm.keybindings switch-windows-backward "['<Shift><Alt>Tab']"
+	${gs_} ${og_}.desktop.wm.keybindings switch-applications "['<Super>Tab']"
+	${gs_} ${og_}.desktop.wm.keybindings switch-applications-backward "['<Super><Shift>Tab']"
+	${gs_} ${og_}.desktop.datetime automatic-timezone false
+	${gs_} ${og_}.desktop.interface clock-show-date true
+	${gs_} ${og_}.desktop.interface clock-show-seconds true
+	${gs_} ${og_}.desktop.interface show-battery-percentage true
+	${gs_} ${og_}.gedit.preferences.editor display-line-numbers true
+	${gs_} ${og_}.gedit.preferences.editor auto-indent true
+	${gs_} ${og_}.gedit.preferences.editor display-overview-map true
+	${gs_} ${og_}.gedit.preferences.editor highlight-current-line true
+	${gs_} ${og_}.gedit.preferences.editor auto-save true
+	${gs_} ${og_}.gedit.preferences.editor bracket-matching true
+	${gs_} ${og_}.gedit.preferences.editor scheme 'cobalt'
+	${gs_} ${og_}.desktop.wm.preferences audible-bell false
+	${gs_} ${og_}.desktop.wm.preferences visual-bell true
+	${gs_} ${og_}.desktop.background primary-color '#000000'
+	${gs_} ${og_}.desktop.background secondary-color '#000000'
+	${gs_} ${og_}.desktop.background picture-uri ''	
+
+# ================================= OTHER ======================================
+
+	timedatectl set-timezone Asia/Kolkata
+	
+	${si_} 's/\()}\)\(\\\[\)/\1${?##0}\2/' .bashrc
+
+	sed -i '1 s/ .*/ 8.8.8.8/; 2 s/ .*/ 8.8.4.4/' /etc/resolv.conf
+
+fi

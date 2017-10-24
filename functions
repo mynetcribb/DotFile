@@ -1,0 +1,283 @@
+
+case "${1}" in
+
+	"nohup")
+		nohup "${2}" 1>| /dev/null 2>&1 &
+	;;
+	
+	"code")
+		for i in "${@:2}"
+		do
+			mkdir /root/source/"${i}"
+			(
+				cd /root/source/"${i}" && 
+				(
+					apt-get source "${i}" || 
+					rm -r /root/source/"${i}"
+				)
+			)
+		done
+	;;
+
+	"mac")
+		lynx --dump 'https://code.wireshark.org/review/gitweb?p=wireshark.git;a=blob_plain;f=manuf' | grep -i "${2}"
+	;;
+
+	"tld")
+		lynx --dump http://data.iana.org/TLD/tlds-alpha-by-domain.txt | grep -i "${2}"
+	;;
+
+	"registrar")
+		lynx --dump https://www.icann.org/registrar-reports/accredited-list.html | grep -i "${2}" | sed 's/ *//'
+	;;
+
+	"registry")
+		lynx --dump --nolist 'https://www.icann.org/resources/pages/listing-2012-02-25-en' | grep -i "${2}" | sed 's/ *//'
+	;;
+
+	"net")
+		if [ "${2}" == "connect" || "${2}" == "disconnect" ]
+		then
+			nmcli dev "${2}" "${3}"
+		else
+			nmcli dev connect "${2}" password "${3}"
+		fi
+	;;
+	
+	"dict")
+		dict "${2}" | sed -n '/From Moby Thesaurus II/q;p'
+	;;
+	
+	"lproxy") 
+		curl www.gatherproxy.com 2>| /dev/null | grep -io '{"proxy_[^}]*}'  | jq -r '. | {_:.PROXY_COUNTRY, IP:.PROXY_IP,PORT:.PROXY_PORT}' -c  | sed 's/["{}]//g' | awk -F, '{ p=substr($3,6); $3="PORT:" sprintf("%d",strtonum("0x" p)); }1' OFS=',' | sed 's/,IP:/\t/; s/,PORT//; s/ /_/g; s/^..//' | sed $'s/ *[^\t]*/\x1b[7;1m&\x1b[0m/' | column -t | column -t -s ':'
+	;;
+		
+	"cproxy")
+		curl www.gatherproxy.com/proxylist/country/?c=${2} 2>| /dev/null | grep -io '{"proxy_[^}]*}'  | jq -r '. | {_:.PROXY_COUNTRY, IP:.PROXY_IP,PORT:.PROXY_PORT}' -c  | sed 's/["{}]//g' | awk -F, '{ p=substr($3,6); $3="PORT:" sprintf("%d",strtonum("0x" p)); }1' OFS=',' | sed 's/,IP:/\t/; s/,PORT//; s/ /_/g; s/^..//' | sed $'s/ *[^\t]*/\x1b[7;1m&\x1b[0m/' | column -t | column -t -s ':'
+	;;
+	
+	"serve")
+		if [ "${2}" == "http" ]
+		then
+			cp "${3}" /var/www/html/files/ ;
+		fi
+	;;
+	
+	"lsync")
+		mv "${2}" /root/Sync
+	;;
+	
+	"gedit")
+		nohup gedit "${2}" 1>| /dev/null 2>&1 & 
+	;;
+	
+	"hx")
+		cat /dev/stdin  | hexdump -v -e '"\\x" 1/1 "%02X"' && echo ;
+	;;
+
+	"null")
+		curl https://null.co.in/chapters/2-delhi 2>/dev/null | grep registration | sed 's|[^-]*-\([^/]*\)/.*|\1|' | cut -d '-' -f 4- | sed 's/-\([[:digit:]].*\)/ \1/; s/\([[:digit:]]\{4\}\)-\(.*\)/\1 \2/' | head -5 | column -t
+	;;
+	
+	"wiki")
+		wp2t "${2}" | less
+	;;
+	
+	"replace")
+		sed -i "/${2}/s:${3}:${4}:g" ${5} ; 
+	;;
+	
+	"search")
+ 		apt-cache search "${2}" | 
+		while read -r pkg desc; 
+		do 
+			apt-cache policy "$pkg" | 
+			awk -v pkg="$pkg" -v desc="$desc" 'NR==2 {print pkg, desc, $"0"}'; 
+		done | 
+			perl -lane '
+				push @e, join $", splice @F, -2;
+				push @A, join $", @F;
+				length($A[-1]) > $maxW and $maxW = length($A[-1])}{
+				print $_, $" x ($maxW - length), "   -", shift @e for @A;
+			' | 
+			sed 's/\(.*\)   -Installed: \(.*\)/\1\2/'
+	;;
+	
+	"whatis")
+		#typeset -f "${2}"
+		#printf "%"$COLUMNS"s" | tr " " "-"
+		type "${2}" 	2>| /dev/null ;
+		if [ "$?" -eq 0 ]; then 
+			printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -;
+			tvar_=$(type "${2}" | sed '/shell builtin\|shell keyword/s/.*/1/') ; 
+		fi;
+		echo "^${2}$" | xargs man -k 2>| /dev/null
+		if [ $? -eq 0 ]; then 
+			#printf "%"$COLUMNS"s" | tr " " "-"
+			printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -; 
+		fi;
+		if [ "${tvar_}" != "1" ] ; 
+		then
+			apt-cache search "^${2}$" | 
+			while read -r pkg desc; 
+			do 
+				apt-cache policy "$pkg" | 
+				awk -v pkg="$pkg" -v desc="$desc" 'NR==2 {print pkg, desc, $"0"}'; 
+			done | 
+				perl -lane '
+					push @e, join $", splice @F, -2;
+					push @A, join $", @F;
+					length($A[-1]) > $maxW and $maxW = length($A[-1])}{
+					print $_, $" x ($maxW - length), "\t\t", shift @e for @A;
+				' ;
+			if [ "$?" -eq 0 ]; then 
+				#printf "%"$COLUMNS"s" | tr " " "-"
+				printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -; 
+			fi;
+			curl -m 10 -L https://pkg.kali.org/pkg/${2} 2>|/dev/null | grep "span class=\"news-date\"\|<title>" | sed 's/.*>\(.*\)<.*/\1/; 2q; s/.*- \(.*\)$/\1/';
+			if [ "$?" -eq 0 ]; 
+			then 
+				printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -; 
+			fi;
+		fi;
+	;;
+	
+	"open")
+		t1=$(sed 's/^.*\.\(.*\): .*/\1/i'0<<<$(file "${2}"))
+		if [ "${2}" == 'firefox' ]
+		then
+			(nohup python -m SimpleHTTPServer 8080 1>| /dev/null 2>&1 &) && nohup firefox "localhost:8080" 1>| /dev/null 2>&1 &
+		elif [ "${t1,,}" == "text" ] ;
+		then
+			vim "${2}" ;
+		elif [ "${t1,,}" == "pdf" ] ;
+		then
+			nohup evince "${2}" 	1>| /dev/null 2>&1 &
+		elif [ "${t1,,}" == "png" ] ;
+		then
+			nohup eog "${2}" 	1>| /dev/null 2>&1 &
+		elif [ "${t1,,}" == "mp4" ] ;
+		then
+			nohup vlc "${2}" 	1>| /dev/null 2>&1 &
+		fi
+	;;
+	
+	"show")
+		apt-cache show "${2}" &&
+		curl -m 10 -L https://pkg.kali.org/pkg/"${2}" 2>|/dev/null | grep "span class=\"news-date\"\|<title>" | sed 's/.*>\(.*\)<.*/\1/; s/.*- \(.*\)$/\1/' | sed 's/-/@/2' | cut -d '@' -f 1 | uniq | sed ':@; N; $!b@; s/\n/____/g';
+	;;
+	
+	"glist")
+		gsettings list-recursively | grep --color=auto -i "${2}" ; 
+	;;
+	
+	"grange")
+		echo "Type :: Key :: Value" ;
+		printf %$COLUMNS"s" | tr " " "-"
+		for key in $(
+				gsettings list-keys ${2} | 
+				sort ;
+			)
+		do
+			type="$(
+					gsettings range ${2} ${key} | 
+					tr "\n" " " ;
+				)" ;
+			value="$(
+					gsettings get ${2} ${key} | 
+					tr "\n" " " ;
+				)" ;
+			echo "${key} :: ${value} :: ${type}";
+		done | 
+		sed "s/ :: /@/g" | column -t -s "@" 
+	;;
+	
+	"network")
+		ip addr | grep 255 ; echo ;
+		curl -s http://whatismyip.akamai.com/ ; echo; 
+		#MAC
+		#apr scan, tcp scan 
+		ping -c 2 google.com ; 
+	;;
+	
+	"system")
+		tty ; echo ;
+		iostat ; echo
+		#shopt -p ; shopt -op ;
+		#shopt -u; shopt -s; shopt -o; set -o; set +o;
+		echo ${0} ; echo ;
+		w ; echo ;
+		who -a ; echo ;
+		uptime ; echo ;
+		stty -a ;
+		uname -a ; echo ;
+		ls -lshZid /; echo ;
+		la /dev/sd[a..b] ;
+		la /dev/sd[a-b][0-9] ; echo ;
+		fdisk -l ; echo ;
+		#du -h / ;
+		df -ahT ; echo ;
+		printenv ; echo ;
+		cat /proc/cpuinfo ; echo;
+		lscpu ; echo ;
+		lspci -v ;
+	;;
+	
+	"gitup")
+		git remote show origin ;
+		git status -s ;
+		echo -e "\x0a\x1b[7m\x57\x61\x6E\x74\x20\x61\x6C\x6C\x20\x63\x6F\x6D\x6D\x69\x74\x73\x20\x75\x6E\x73\x74\x61\x67\x65\x64\x20\x3F\x3F\x1b[27m\x0A"
+		read r1 ;
+		if echo "${r1}" | 
+			grep -iq "^y" ;	
+		then
+			git reset ;
+		fi
+		echo -e "\x0a\x1b[7m\x67\x69\x74\x20\x61\x64\x64\x20\x3F\x3F\x1b[27m\x0A"
+		read r1 ;
+		if echo "${r1}" | 
+			grep -iq "^y" ;	
+		then
+			git add . ;
+		fi
+		git status -s ;
+		echo -e "\x0a\x1b[7m\x43\x6F\x6E\x74\x69\x6E\x75\x65\x20\x3F\x3F\x1b[27m\x0A"
+		read -p "" ;
+		git commit -m "0";
+		#echo -e "\x0a\x1b[2m\x67\x69\x74\x20\x6C\x6F\x67\x0A"
+		#git log;
+		git push ;
+	;;
+	
+	"weather")
+		curl wttr.in/"^${2}$" 2>| /dev/null | head -n -3 ; 
+	;;
+	
+	"lh")
+		ls -FlAshZi --color=auto "${2:-.}" | sed -n '/ [[:digit:]]\{1,2\} [[:digit:]]\{2\}:[[:digit:]]\{2\} \./p'
+	;;
+	
+	"lsd")
+		ls -AlF | 
+		sort -k 9,9 >| ${tmp_}/1 ; 
+	
+		(
+			file -Nz "${2}" ."${2}" | 
+			sort -k 1,1 | 
+			${se_} '/^.:.*directory$/d' -e '/^..:.*directory$/d' | 
+			awk '{ $"1"=""; print substr($"0",2) }' | 
+			tac ; 
+			echo ;
+		) | 
+		tac >| ${tmp_}/2 ; 
+		
+		(
+			echo; file -Nzi * .* | 
+			sort -k 1,1 | 
+			${se_} '1d' -e '2d' ;
+		) >| ${tmp_}/3 ; 
+	
+		paste ${tmp_}/1 ${tmp_}/2 ${tmp_}/3 >| ${tmp_}/0 ;
+		cat ${tmp_}/0 ;
+	;;
+esac
